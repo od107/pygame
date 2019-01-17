@@ -44,8 +44,6 @@ GODMODE = False
 
 SNAKELENGTH = 3
 
-#put snakedirections definitions into an array
-
 def main():
     global FPSCLOCK, DISPLAYSURF
     pygame.init()
@@ -59,7 +57,7 @@ def main():
     snakeHead = [int(BOARDWIDTH/2), int(BOARDHEIGHT/2)]
     snakeDirection = RIGHT
     snake = initSnake(snakeHead)
-    food = [2,2]
+    food = initFood(snake)
     
 
     DISPLAYSURF.fill(BGCOLOR)
@@ -73,28 +71,25 @@ def main():
                 pygame.quit()
                 sys.exit()
             elif event.type == KEYDOWN:
-                if event.key == K_UP:
+                if event.key == K_UP and snakeDirection != DOWN:
                     snakeDirection = UP
-                if event.key == K_DOWN:
+                if event.key == K_DOWN and snakeDirection != UP:
                     snakeDirection = DOWN
-                if event.key == K_RIGHT:
+                if event.key == K_RIGHT and snakeDirection != LEFT:
                     snakeDirection = RIGHT
-                if event.key == K_LEFT:
+                if event.key == K_LEFT and snakeDirection != RIGHT:
                     snakeDirection = LEFT
     
-        # Redraw the screen and wait a clock tick.
+        # Update snake head
         if(snakeDirection == RIGHT):
-            snakeHead[0] = snakeHead[0] + 1 #why does this update snake as well?
-            #TODO update snake
-            snake.insert(0, snakeHead)
-            #snake.pop()
+            snakeHead[0] = snakeHead[0] + 1 
         if(snakeDirection == LEFT):
             snakeHead[0] = snakeHead[0] - 1
         if(snakeDirection == UP):
             snakeHead[1] = snakeHead[1] - 1
         if(snakeDirection == DOWN):
             snakeHead[1] = snakeHead[1] + 1
-
+        
         if(GODMODE == True):
             if(snakeHead[0]>=BOARDWIDTH):
                 snakeHead[0]=0
@@ -104,15 +99,27 @@ def main():
                 snakeHead[0]=BOARDWIDTH-1
             if(snakeHead[1]<0):
                 snakeHead[1]=BOARDHEIGHT-1
-        else:
-            if(snakeHead[0]>=BOARDWIDTH or snakeHead[0]>=BOARDHEIGHT or snakeHead[0]<0 or snakeHead[1]<0):
+        else:         
+            if(snakeHead[0]>=BOARDWIDTH or snakeHead[1]>=BOARDHEIGHT
+               or snakeHead[0]<0 or snakeHead[1]<0
+               or snakeHead in snake):
+                #game is lost
                 gameLostAnimation(mainBoard, snake, food)
                 mainBoard = initBoard()
                 #put these things in initialisation function
                 snakeHead = [int(BOARDWIDTH/2), int(BOARDHEIGHT/2)]
                 snakeDirection = RIGHT
                 snake = initSnake(snakeHead)
-                food = [2,2]
+                #food =
+                initFood(snake)
+
+        #update snake
+        snake.insert(0, snakeHead[:])
+        if(snakeHead != food):
+            snake.pop()
+        else:
+            food = initFood(snake, food)
+            
                 
         pygame.display.update()
         FPSCLOCK.tick(FPS)
@@ -130,12 +137,21 @@ def initBoard():
     return board
 
 def initSnake(snakeHead):
-    snake = [snakeHead]
+    snake = []
+    #snake = [snakeHead]
     assert (snakeHead[0]-SNAKELENGTH+1 > 0) , "initial snake too big"
-    for i in range(SNAKELENGTH-1):
-        segment = [snakeHead[0]-(i+1), snakeHead[1]]
+    for i in range(SNAKELENGTH):
+        segment = [snakeHead[0]-(i), snakeHead[1]]
         snake.append(segment)
     return snake
+
+def initFood(snake, food=None):
+    #make sure food doesnt drop under snake
+    #isn't this possible without returning the food?
+    while(food in snake or food == None):
+        food = [random.randint(0,BOARDWIDTH-1), random.randint(0,BOARDHEIGHT-1)]
+    return food
+
         
 def leftTopCoordsOfBox(boxx, boxy):
     # Convert board coordinates to pixel coordinates
@@ -170,13 +186,6 @@ def gameLostAnimation(board, snake, food):
         drawBoard(board, snake, food)
         pygame.display.update()
         pygame.time.wait(300)
-
-    #TODO reset the game after you've lost
-
-
-
-
-
 
 if __name__ == '__main__':
     main()
