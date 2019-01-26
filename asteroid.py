@@ -41,6 +41,7 @@ def main():
     pygame.init()
     FPSCLOCK = pygame.time.Clock()
     DISPLAYSURF = pygame.display.set_mode((WINDOWWIDTH, WINDOWHEIGHT))
+    pygame.key.set_repeat(1, 100)
 
     pygame.display.set_caption('Asteroids')
 
@@ -53,10 +54,10 @@ def main():
     DISPLAYSURF.fill(BGCOLOR)
     
     while True: # main game loop
-        DISPLAYSURF.fill(BGCOLOR) # drawing the window
+        DISPLAYSURF.fill(BGCOLOR)
         draw(ship)
 
-        #continue
+        #difference keyup and keypressed
 
         for event in pygame.event.get(): # event handling loop
             if event.type == QUIT or (event.type == KEYUP and event.key == K_ESCAPE):
@@ -73,41 +74,20 @@ def main():
                     ship.rotateLeft()
     
         # Update position
-        ship.move();
- 
-                
+        ship.move()
+
         pygame.display.update()
         FPSCLOCK.tick(FPS)
 
 
 
 def draw(ship):
-    """points = [ [ ship.pos[0], ship.pos[1] ],
-               [ ship.pos[0] + SHIPSIZE * math.cos(ship.orientation), ship.pos[0] + SHIPSIZE * math.sin(ship.orientation)],
-               [ ship.pos[0] - SHIPSIZE * math.cos(ship.orientation), ship.pos[0] - SHIPSIZE * math.sin(ship.orientation)],
-            ] # funny 3D rotating triangle
-    """
-    surf = pygame.Surface((SHIPSIZE, SHIPSIZE))
-    #surf.fill((255,100,100))
-    surf.set_colorkey((0, 0, 0))
+    #TODO fix border transitions
 
-
-
-    points = [ [ ship.pos[0], ship.pos[1] ],
-               [ship.pos[0] - SHIPSIZE/2, ship.pos[1] + SHIPSIZE],
-               [ship.pos[0] + SHIPSIZE/2, ship.pos[1] + SHIPSIZE]
-            ]
-    points = [ [ SHIPSIZE/2, 0  ],
-               [0, SHIPSIZE],
-               [SHIPSIZE, SHIPSIZE]
-            ]
-    #the rotating part doesnt work yet as it should
-    pygame.draw.polygon(surf, WHITE, points, 2)
-    where = [ ship.pos[0], ship.pos[1]]
-    blittedRect = DISPLAYSURF.blit(surf, where)
+    blittedRect = DISPLAYSURF.blit(ship.img, ship.pos)
 
     oldCenter = blittedRect.center
-    rotatedSurf = pygame.transform.rotate(surf, math.degrees(ship.orientation))
+    rotatedSurf = pygame.transform.rotate(ship.img, math.degrees(ship.orientation - math.pi/2))
 
     rotRect = rotatedSurf.get_rect()
     rotRect.center = oldCenter
@@ -117,11 +97,14 @@ def draw(ship):
 
 class Ship:
     maxSpeed = 100
+    img = pygame.image.load('ship.png')
+    img.set_colorkey((0, 0, 0))
     
     def __init__(self):
         self.pos = [int(WINDOWWIDTH/2), int(WINDOWHEIGHT/2)]
-        self.orientation = - math.pi/2
+        self.orientation = math.pi/2
         self.vel = [0, 0]
+
 
     def accelerate(self):
         self.vel[0] += math.cos(self.orientation)/5
@@ -131,7 +114,7 @@ class Ship:
 
     def move(self):
         self.pos[0] += self.vel[0]
-        self.pos[1] += self.vel[1]
+        self.pos[1] -= self.vel[1]
         #print('position: ',self.pos)
            
         if(self.pos[0] > WINDOWWIDTH + MARGIN):
@@ -145,11 +128,11 @@ class Ship:
         
 
     def rotateRight(self):
-        self.orientation += math.pi / 18
+        self.orientation -= math.pi / 18
         print('orientation: ', self.orientation)
 
     def rotateLeft(self):
-        self.orientation -= math.pi / 18
+        self.orientation += math.pi / 18
         print('orientation: ', self.orientation)
 
     def shoot(self):
