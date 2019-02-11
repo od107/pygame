@@ -57,21 +57,20 @@ def main():
         DISPLAYSURF.fill(BGCOLOR)
         draw(ship, bullets, asteroids)
 
-        #TODO: change keyup with keypressed
-
-        for event in pygame.event.get(): # event handling loop
-            if event.type == QUIT or (event.type == KEYUP and event.key == K_ESCAPE):
-                pygame.quit()
-                sys.exit()
-            elif event.type == KEYDOWN:
-                if event.key == K_UP:
-                    ship.accelerate()
-                if event.key == K_SPACE:
-                    bullets.append(ship.shoot())
-                if event.key == K_RIGHT:
-                    ship.rotateRight()
-                if event.key == K_LEFT:
-                    ship.rotateLeft()
+        #TODO: change repetition speed and implement close window
+        pygame.event.pump()
+        keys = pygame.key.get_pressed()
+        if keys[pygame.K_ESCAPE]: #how to get close window to work? or pygame.event.type == QUIT:
+            pygame.quit()
+            sys.exit()
+        if keys[pygame.K_UP]:
+            ship.accelerate()
+        if keys[pygame.K_SPACE]:
+            bullets.append(ship.shoot())
+        if keys[pygame.K_RIGHT]:
+            ship.rotateRight()
+        if keys[pygame.K_LEFT]:
+            ship.rotateLeft()
 
         # Update position
         ship.move()
@@ -108,6 +107,8 @@ def draw(ship, bullets, asteroids):
         #DISPLAYSURF.blit(bullet.img, bullet.pos)
         pygame.draw.rect(DISPLAYSURF, WHITE, ((bullet.pos), (BULLETSIZE, BULLETSIZE)))
 
+    #for testing purposes
+    pygame.draw.rect(DISPLAYSURF, GREEN, ((ship.pos), (1, 1)))
 
 class Ship:
     maxSpeed = 100
@@ -172,7 +173,7 @@ class Bullet():
             self.pos[1] > WINDOWHEIGHT + MARGIN + SHIPSIZE or
             self.pos[0] < 0 - MARGIN or
             self.pos[1] < 0 - MARGIN):
-            del(self)
+            #del(self)
             return True
 
 
