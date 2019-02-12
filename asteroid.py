@@ -50,6 +50,8 @@ def main():
     ship = Ship()
     bullets = []
     asteroids = []
+    astrospawn = pygame.USEREVENT + 1
+    pygame.time.set_timer(astrospawn, 5000)
 
     DISPLAYSURF.fill(BGCOLOR)
 
@@ -58,6 +60,15 @@ def main():
         draw(ship, bullets, asteroids)
 
         #TODO: change repetition speed and implement close window
+        for event in pygame.event.get():
+            if event.type == pygame.QUIT:
+                pygame.quit()
+                sys.exit()
+            elif event.type == astrospawn:
+                asteroids.append(Asteroid())
+
+
+
         pygame.event.pump()
         keys = pygame.key.get_pressed()
         if keys[pygame.K_ESCAPE]: #how to get close window to work? or pygame.event.type == QUIT:
@@ -71,12 +82,15 @@ def main():
             ship.rotateRight()
         if keys[pygame.K_LEFT]:
             ship.rotateLeft()
+        
+
 
         # Update position
         ship.move()
 
         for asteroid in asteroids:
-            asteroid.move()
+            if asteroid.move():
+                asteroids.remove(asteroid)
 
         for bullet in bullets:
             if bullet.move():
@@ -90,10 +104,10 @@ def main():
 
 def draw(ship, bullets, asteroids):
     #TODO fix border transitions and add asteroids
-    #TODO change the position of the ship image to be at the tip of the ship
+    #should the draw function be part of an object? Or be a separate part of the program?
 
 
-    blittedRect = DISPLAYSURF.blit(ship.img.convert(), ship.pos)
+    blittedRect = DISPLAYSURF.blit(ship.img.convert(), ship.pos) # convert should be moved elsewhere
 
     oldCenter = blittedRect.center
     rotatedSurf = pygame.transform.rotate(ship.img, math.degrees(ship.orientation - math.pi/2))
@@ -107,8 +121,11 @@ def draw(ship, bullets, asteroids):
         #DISPLAYSURF.blit(bullet.img, bullet.pos)
         pygame.draw.rect(DISPLAYSURF, WHITE, ((bullet.pos), (BULLETSIZE, BULLETSIZE)))
 
+    for asteroid in asteroids:
+        pygame.draw.circle(DISPLAYSURF, WHITE, asteroid.pos, asteroid.size, 3)
+
     #for testing purposes
-    pygame.draw.rect(DISPLAYSURF, GREEN, ((ship.pos), (1, 1)))
+    #pygame.draw.rect(DISPLAYSURF, GREEN, ((ship.pos), (1, 1)))
 
 class Ship:
     maxSpeed = 100
@@ -160,7 +177,8 @@ class Bullet():
     shootSpeed = 5
 
     def __init__(self, shippos, shiporientation, shipvel):
-        self.pos = shippos.copy()
+        self.pos = [shippos[0] + SHIPSIZE/2,
+                    shippos[1] + SHIPSIZE/2 ]
         self.vel = [shipvel[0] + self.shootSpeed * math.cos(shiporientation),
                     shipvel[1] + self.shootSpeed * math.sin(shiporientation)]
 
@@ -176,7 +194,40 @@ class Bullet():
             #del(self)
             return True
 
+class Asteroid():
+    Lsize = 30
+    Msize = 15
+    Ssize = 5
 
+    Lspeed = 2
+    Mspeed = 5
+    Sspeed = 10
+
+    def __init__(self):
+        self.size = self.Lsize
+        edge = random.randint(0,3)
+        if edge == 2:
+            self.pos = [ random.randint(0,WINDOWWIDTH-1), 0]
+        elif edge == 3:
+            self.pos = [ 0, random.randint(0,WINDOWHEIGHT-1)]
+        elif edge == 0:
+            self.pos = [ random.randint(0,WINDOWWIDTH-1), WINDOWHEIGHT-1]
+        elif edge == 1:
+            self.pos = [ WINDOWWIDTH-1, random.randint(0,WINDOWHEIGHT-1)]
+
+        self.direction = random.uniform(0, math.pi)  + edge * math.pi/2
+        self.vel = [int(self.Lspeed * math.cos(self.direction)), int( self.Lspeed * math.sin(self.direction))]
+
+    def move(self):
+        self.pos[0] += self.vel[0]
+        self.pos[1] -= self.vel[1]
+
+        if(self.pos[0] > WINDOWWIDTH + MARGIN or
+            self.pos[1] > WINDOWHEIGHT + MARGIN or
+            self.pos[0] < 0 - MARGIN or
+            self.pos[1] < 0 - MARGIN):
+            #del(self)
+            return True
 
 if __name__ == '__main__':
     main()
