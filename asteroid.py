@@ -42,14 +42,17 @@ def main():
     pygame.init()
     FPSCLOCK = pygame.time.Clock()
     DISPLAYSURF = pygame.display.set_mode((WINDOWWIDTH, WINDOWHEIGHT))
-    pygame.key.set_repeat(1, 100)
+    pygame.key.set_repeat(1, 100) #still makes sense or not?
 
     pygame.display.set_caption('Asteroids')
 
     #initialize
+    score = 0
     ship = Ship()
     bullets = []
     asteroids = []
+    shipImg = pygame.image.load('ship.png').convert()
+    shipImg.set_colorkey((0, 0, 0))
     astrospawn = pygame.USEREVENT + 1
     pygame.time.set_timer(astrospawn, 5000)
 
@@ -57,21 +60,20 @@ def main():
 
     while True: # main game loop
         DISPLAYSURF.fill(BGCOLOR)
-        draw(ship, bullets, asteroids)
+        draw(shipImg, ship, bullets, asteroids)
 
-        #TODO: change repetition speed and implement close window
+        #TODO: change repetition speed of shooting
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
                 pygame.quit()
                 sys.exit()
             elif event.type == astrospawn:
                 asteroids.append(Asteroid())
+            #elif event.type == KEYDOWN and event.key == K_SPACE:
+            #    bullets.append(ship.shoot())
 
-
-
-        pygame.event.pump()
         keys = pygame.key.get_pressed()
-        if keys[pygame.K_ESCAPE]: #how to get close window to work? or pygame.event.type == QUIT:
+        if keys[pygame.K_ESCAPE]:
             pygame.quit()
             sys.exit()
         if keys[pygame.K_UP]:
@@ -82,10 +84,8 @@ def main():
             ship.rotateRight()
         if keys[pygame.K_LEFT]:
             ship.rotateLeft()
-        
 
-
-        # Update position
+        # Update positions
         ship.move()
 
         for asteroid in asteroids:
@@ -97,35 +97,56 @@ def main():
                 bullets.remove(bullet)
 
         pygame.display.update()
+
+        #collission detection
+        for bullet in bullets:
+            for asteroid in asteroids:
+                if distance(bullet.pos, asteroid.pos) < asteroid.size:
+                    bullets.remove(bullet)
+                    pieces = asteroid.hit()
+                    if pieces is not None:
+                        for new_asteroid in pieces:
+                            asteroids.append(new_asteroid)
+                    asteroids.remove(asteroid)
+                    score += 10
+                    break
+
+        #TODO display score
+        #TODO spaceship collission
+
+
         FPSCLOCK.tick(FPS)
         #print(FPSCLOCK.get_fps())
 
 
+def distance(posA, posB):
+    return math.sqrt(math.pow(posA[0]-posB[0], 2) + math.pow(posA[1]-posB[1], 2))
 
-def draw(ship, bullets, asteroids):
-    #TODO fix border transitions and add asteroids
+
+def draw(shipImg, ship, bullets, asteroids):
+    #TODO fix border transitions
     #should the draw function be part of an object? Or be a separate part of the program?
 
-
-    blittedRect = DISPLAYSURF.blit(ship.img.convert(), ship.pos) # convert should be moved elsewhere
+    blittedRect = DISPLAYSURF.blit(shipImg, ship.pos) # convert should be moved elsewhere
 
     oldCenter = blittedRect.center
-    rotatedSurf = pygame.transform.rotate(ship.img, math.degrees(ship.orientation - math.pi/2))
+    rotatedSurf = pygame.transform.rotate(shipImg, math.degrees(ship.orientation - math.pi/2))
 
     rotRect = rotatedSurf.get_rect()
     rotRect.center = oldCenter
 
+    DISPLAYSURF.fill(BGCOLOR)
     DISPLAYSURF.blit(rotatedSurf, rotRect)
 
-    for bullet in bullets: #is there a way to blit multiple images?
-        #DISPLAYSURF.blit(bullet.img, bullet.pos)
+    for bullet in bullets:
         pygame.draw.rect(DISPLAYSURF, WHITE, ((bullet.pos), (BULLETSIZE, BULLETSIZE)))
 
     for asteroid in asteroids:
-        pygame.draw.circle(DISPLAYSURF, WHITE, asteroid.pos, asteroid.size, 3)
+        pygame.draw.circle(DISPLAYSURF, WHITE, (int(asteroid.pos[0]),int(asteroid.pos[1])), asteroid.size, 3)
 
     #for testing purposes
     #pygame.draw.rect(DISPLAYSURF, GREEN, ((ship.pos), (1, 1)))
+
 
 class Ship:
     maxSpeed = 100
@@ -158,27 +179,23 @@ class Ship:
         elif(self.pos[1] < 0 - MARGIN):
             self.pos[1] = WINDOWHEIGHT + MARGIN
 
-
     def rotateRight(self):
         self.orientation -= math.pi / 18
-        #print('orientation: ', self.orientation)
 
     def rotateLeft(self):
         self.orientation += math.pi / 18
-        #print('orientation: ', self.orientation)
 
     def shoot(self):
         bullet = Bullet(self.pos, self.orientation, self.vel)
         return bullet
-        print('position: ', self.pos)
-        #to implement
 
-class Bullet():
+
+class Bullet:
     shootSpeed = 5
 
     def __init__(self, shippos, shiporientation, shipvel):
         self.pos = [shippos[0] + SHIPSIZE/2,
-                    shippos[1] + SHIPSIZE/2 ]
+                    shippos[1] + SHIPSIZE/2]
         self.vel = [shipvel[0] + self.shootSpeed * math.cos(shiporientation),
                     shipvel[1] + self.shootSpeed * math.sin(shiporientation)]
 
@@ -191,43 +208,68 @@ class Bullet():
             self.pos[1] > WINDOWHEIGHT + MARGIN + SHIPSIZE or
             self.pos[0] < 0 - MARGIN or
             self.pos[1] < 0 - MARGIN):
-            #del(self)
             return True
 
-class Asteroid():
+
+class Asteroid:
     Lsize = 30
     Msize = 15
     Ssize = 5
 
     Lspeed = 2
-    Mspeed = 5
-    Sspeed = 10
+    Mspeed = 3
+    Sspeed = 5
 
-    def __init__(self):
-        self.size = self.Lsize
-        edge = random.randint(0,3)
-        if edge == 2:
-            self.pos = [ random.randint(0,WINDOWWIDTH-1), 0]
-        elif edge == 3:
-            self.pos = [ 0, random.randint(0,WINDOWHEIGHT-1)]
-        elif edge == 0:
-            self.pos = [ random.randint(0,WINDOWWIDTH-1), WINDOWHEIGHT-1]
-        elif edge == 1:
-            self.pos = [ WINDOWWIDTH-1, random.randint(0,WINDOWHEIGHT-1)]
+    def __init__(self, position=None, direction=None, speed=Lspeed, size=Lsize):
+        if position is not None:
+            self.pos = position
+            self.dir = direction
 
-        self.direction = random.uniform(0, math.pi)  + edge * math.pi/2
-        self.vel = [int(self.Lspeed * math.cos(self.direction)), int( self.Lspeed * math.sin(self.direction))]
+
+        else:
+            #self.size = self.Lsize
+            edge = random.randint(0, 3)
+            if edge == 2:
+                self.pos = [random.randint(0, WINDOWWIDTH-1), 0]
+            elif edge == 3:
+                self.pos = [0, random.randint(0, WINDOWHEIGHT-1)]
+            elif edge == 0:
+                self.pos = [random.randint(0, WINDOWWIDTH-1), WINDOWHEIGHT-1]
+            elif edge == 1:
+                self.pos = [WINDOWWIDTH-1, random.randint(0, WINDOWHEIGHT-1)]
+
+            self.dir = random.uniform(0, math.pi) + edge * math.pi / 2
+
+        self.vel = [speed * math.cos(self.dir), speed * math.sin(self.dir)]
+        self.size = size
 
     def move(self):
         self.pos[0] += self.vel[0]
         self.pos[1] -= self.vel[1]
 
         if(self.pos[0] > WINDOWWIDTH + MARGIN or
-            self.pos[1] > WINDOWHEIGHT + MARGIN or
-            self.pos[0] < 0 - MARGIN or
-            self.pos[1] < 0 - MARGIN):
-            #del(self)
+           self.pos[1] > WINDOWHEIGHT + MARGIN or
+           self.pos[0] < 0 - MARGIN or
+           self.pos[1] < 0 - MARGIN):
             return True
+
+    def hit(self):
+        angle = math.pi / 9
+
+        if self.size == self.Lsize:
+            speed = self.Mspeed
+            size = self.Msize
+        elif self.size == self.Msize:
+            speed = self.Sspeed
+            size = self.Ssize
+        elif self.size == self.Ssize:
+            return None
+
+        pieces = [Asteroid(self.pos.copy(), self.dir + angle, speed, size),
+                  Asteroid(self.pos.copy(), self.dir - angle, speed, size)]
+
+        return pieces
+
 
 if __name__ == '__main__':
     main()
