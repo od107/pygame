@@ -26,7 +26,8 @@ YELLOW   = (255, 255,   0)
 ORANGE   = (255, 128,   0)
 PURPLE   = (255,   0, 255)
 CYAN     = (  0, 255, 255)
-DGREEN   = (0  , 100,   0)
+DGREEN   = (  0, 100,   0)
+BLACK    = (  0,   0,   0)
 
 BGCOLOR = DGREEN
 LIGHTBGCOLOR = YELLOW
@@ -41,7 +42,6 @@ UP = 'up'
 DOWN = 'down'
 
 GODMODE = False
-
 SNAKELENGTH = 3
 
 def main():
@@ -58,13 +58,14 @@ def main():
     snakeDirection = RIGHT
     snake = initSnake(snakeHead)
     food = initFood(snake)
-    
+    score = 0
+
 
     DISPLAYSURF.fill(BGCOLOR)
-    
+
     while True: # main game loop
         DISPLAYSURF.fill(BGCOLOR) # drawing the window
-        drawBoard(mainBoard, snake, food)
+        newDirection = None
 
         for event in pygame.event.get(): # event handling loop
             if event.type == QUIT or (event.type == KEYUP and event.key == K_ESCAPE):
@@ -72,24 +73,26 @@ def main():
                 sys.exit()
             elif event.type == KEYDOWN:
                 if event.key == K_UP and snakeDirection != DOWN:
-                    snakeDirection = UP
+                    newDirection = UP
                 if event.key == K_DOWN and snakeDirection != UP:
-                    snakeDirection = DOWN
+                    newDirection = DOWN
                 if event.key == K_RIGHT and snakeDirection != LEFT:
-                    snakeDirection = RIGHT
+                    newDirection = RIGHT
                 if event.key == K_LEFT and snakeDirection != RIGHT:
-                    snakeDirection = LEFT
-    
+                    newDirection = LEFT
+        if newDirection:
+            snakeDirection = newDirection
+
         # Update snake head
         if(snakeDirection == RIGHT):
-            snakeHead[0] = snakeHead[0] + 1 
+            snakeHead[0] = snakeHead[0] + 1
         if(snakeDirection == LEFT):
             snakeHead[0] = snakeHead[0] - 1
         if(snakeDirection == UP):
             snakeHead[1] = snakeHead[1] - 1
         if(snakeDirection == DOWN):
             snakeHead[1] = snakeHead[1] + 1
-        
+
         if(GODMODE == True):
             if(snakeHead[0]>=BOARDWIDTH):
                 snakeHead[0]=0
@@ -99,19 +102,20 @@ def main():
                 snakeHead[0]=BOARDWIDTH-1
             if(snakeHead[1]<0):
                 snakeHead[1]=BOARDHEIGHT-1
-        else:         
+        else:
             if(snakeHead[0]>=BOARDWIDTH or snakeHead[1]>=BOARDHEIGHT
                or snakeHead[0]<0 or snakeHead[1]<0
                or snakeHead in snake):
                 #game is lost
-                gameLostAnimation(mainBoard, snake, food)
+                print(snakeDirection)
+                gameLostAnimation(mainBoard, snake, food, score)
                 mainBoard = initBoard()
                 #put these things in initialisation function
                 snakeHead = [int(BOARDWIDTH/2), int(BOARDHEIGHT/2)]
                 snakeDirection = RIGHT
                 snake = initSnake(snakeHead)
-                #food =
                 initFood(snake)
+                score = 0
 
         #update snake
         snake.insert(0, snakeHead[:])
@@ -119,8 +123,10 @@ def main():
             snake.pop()
         else:
             food = initFood(snake, food)
-            
-                
+            score += 1
+
+        drawBoard(mainBoard, snake, food, score)
+
         pygame.display.update()
         FPSCLOCK.tick(FPS)
 
@@ -138,7 +144,6 @@ def initBoard():
 
 def initSnake(snakeHead):
     snake = []
-    #snake = [snakeHead]
     assert (snakeHead[0]-SNAKELENGTH+1 > 0) , "initial snake too big"
     for i in range(SNAKELENGTH):
         segment = [snakeHead[0]-(i), snakeHead[1]]
@@ -152,7 +157,7 @@ def initFood(snake, food=None):
         food = [random.randint(0,BOARDWIDTH-1), random.randint(0,BOARDHEIGHT-1)]
     return food
 
-        
+
 def leftTopCoordsOfBox(boxx, boxy):
     # Convert board coordinates to pixel coordinates
     left = boxx * (BOXSIZE + GAPSIZE) + XMARGIN
@@ -161,7 +166,7 @@ def leftTopCoordsOfBox(boxx, boxy):
 
 
 
-def drawBoard(board, snake, food):
+def drawBoard(board, snake, food, score):
     # Draws all of the boxes in their covered or revealed state.
     for boxx in range(BOARDWIDTH):
         for boxy in range(BOARDHEIGHT):
@@ -172,10 +177,15 @@ def drawBoard(board, snake, food):
                 pygame.draw.rect(DISPLAYSURF, FOODCOLOR, (left, top, BOXSIZE, BOXSIZE))
             else:
                 pygame.draw.rect(DISPLAYSURF, BOXCOLOR, (left, top, BOXSIZE, BOXSIZE))
-            
 
+    font_obj = pygame.font.Font('freesansbold.ttf', 32)
+    text_surface_obj = font_obj.render(str(score), True, WHITE)
+    text_rect_obj = text_surface_obj.get_rect()
+    text_rect_obj.top = 10
+    text_rect_obj.right = (WINDOWWIDTH - 10)
+    DISPLAYSURF.blit(text_surface_obj, text_rect_obj)
 
-def gameLostAnimation(board, snake, food):
+def gameLostAnimation(board, snake, food, score):
     # flash the background color when the player has lost
     color1 = LIGHTBGCOLOR
     color2 = BGCOLOR
@@ -183,7 +193,7 @@ def gameLostAnimation(board, snake, food):
     for i in range(13):
         color1, color2 = color2, color1 # swap colors
         DISPLAYSURF.fill(color1)
-        drawBoard(board, snake, food)
+        drawBoard(board, snake, food, score)
         pygame.display.update()
         pygame.time.wait(300)
 
