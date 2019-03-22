@@ -36,38 +36,51 @@ DOWN = 'down'
 GODMODE = False
 
 
+
+
 def main():
-    global FPSCLOCK, DISPLAYSURF, SCORE
+    global FPSCLOCK, DISPLAYSURF, SCORE, SHIP_IMG
     pygame.init()
     FPSCLOCK = pygame.time.Clock()
     DISPLAYSURF = pygame.display.set_mode((WINDOWWIDTH, WINDOWHEIGHT))
     pygame.key.set_repeat(1, 100)  # still makes sense or not?
 
     pygame.display.set_caption('Asteroids')
+    SHIP_IMG = pygame.image.load('ship.png').convert()  # on this location or in the class
+    SHIP_IMG.set_colorkey(BLACK)
 
     # initialize
     SCORE = 0
     ship = Ship()
-    bullets = []
-    asteroids = []
-    ship_img = pygame.image.load('ship.png').convert()
-    ship_img.set_colorkey((0, 0, 0))
-    astrospawn = pygame.USEREVENT + 1
-    pygame.time.set_timer(astrospawn, 5000)
+    bullets = pygame.sprite.Group()  # []
+    asteroids = pygame.sprite.Group() #      []
+
+    astro_spawn = pygame.USEREVENT + 1
+    pygame.time.set_timer(astro_spawn, 5000)
+
+    all_sprites = pygame.sprite.Group()
+    all_sprites.add(ship)
+
+    # ship_rect_size = math.sqrt(2 * SHIPSIZE ^ 2)
+    # ship_rect = Rect(ship.pos[0] + SHIPSIZE / 2, ship.pos[1] + SHIPSIZE / 2, ship_rect_size, ship_rect_size)
 
     DISPLAYSURF.fill(BGCOLOR)
 
     while True:  # main game loop
         DISPLAYSURF.fill(BGCOLOR)
-        draw(ship_img, ship, bullets, asteroids)
+
+        # all_sprites.draw(DISPLAYSURF)
+        draw(ship, bullets, asteroids)
 
         # TODO: change repetition speed of shooting
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
                 pygame.quit()
                 sys.exit()
-            elif event.type == astrospawn:
-                asteroids.append(Asteroid())
+            elif event.type == astro_spawn:
+                asteroid = Asteroid()
+                asteroids.add(asteroid)
+                all_sprites.add(asteroid)
             # elif event.type == KEYDOWN and event.key == K_SPACE:
             #    bullets.append(ship.shoot())
 
@@ -78,22 +91,17 @@ def main():
         if keys[pygame.K_UP]:
             ship.accelerate()
         if keys[pygame.K_SPACE]:
-            bullets.append(ship.shoot())
+            bullet = ship.shoot()
+            bullets.add(bullet)
+            all_sprites.add(bullet)
         if keys[pygame.K_RIGHT]:
             ship.rotate_right()
         if keys[pygame.K_LEFT]:
             ship.rotate_left()
 
         # Update positions
-        ship.move()
+        all_sprites.update()
 
-        for asteroid in asteroids:
-            if asteroid.move():
-                asteroids.remove(asteroid)
-
-        for bullet in bullets:
-            if bullet.move():
-                bullets.remove(bullet)
 
         pygame.display.update()
 
@@ -101,12 +109,13 @@ def main():
         for bullet in bullets:
             for asteroid in asteroids:
                 if distance(bullet.pos, asteroid.pos) < asteroid.size:
-                    bullets.remove(bullet)
+                    bullet.kill()
                     pieces = asteroid.hit()
+                    asteroid.kill()
                     if pieces is not None:
                         for new_asteroid in pieces:
-                            asteroids.append(new_asteroid)
-                    asteroids.remove(asteroid)
+                            asteroids.add(new_asteroid)
+                            all_sprites.add(new_asteroid)
                     break
 
         # TODO spaceship collision
@@ -119,14 +128,13 @@ def distance(pos_a, pos_b):
     return math.sqrt(math.pow(pos_a[0] - pos_b[0], 2) + math.pow(pos_a[1] - pos_b[1], 2))
 
 
-def draw(ship_img, ship, bullets, asteroids):
+def draw(ship, bullets, asteroids):
     # TODO fix border transitions
-    # should the draw function be part of an object? Or be a separate part of the program?
 
-    blitted_rect = DISPLAYSURF.blit(ship_img, ship.pos)  # convert should be moved elsewhere
+    blitted_rect = DISPLAYSURF.blit(SHIP_IMG, ship.pos)  # convert should be moved elsewhere
 
     old_center = blitted_rect.center
-    rotated_surf = pygame.transform.rotate(ship_img, math.degrees(ship.orientation - math.pi / 2))
+    rotated_surf = pygame.transform.rotate(SHIP_IMG, math.degrees(ship.orientation - math.pi / 2))
 
     rot_rect = rotated_surf.get_rect()
     rot_rect.center = old_center
@@ -151,12 +159,14 @@ def draw(ship_img, ship, bullets, asteroids):
     DISPLAYSURF.blit(text_surface_obj, text_rect_obj)
 
 
-class Ship:
+class Ship(pygame.sprite.Sprite):
     maxSpeed = 100
-    img = pygame.image.load('ship.png')
-    img.set_colorkey((0, 0, 0))
+    global SHIP_IMG
 
     def __init__(self):
+        pygame.sprite.Sprite.__init__(self)
+        self.image = SHIP_IMG
+        self.rect = self.image.get_rect()
         self.pos = [int(WINDOWWIDTH / 2), int(WINDOWHEIGHT / 2)]
         self.orientation = math.pi / 2
         self.vel = [0, 0]
@@ -166,7 +176,7 @@ class Ship:
         self.vel[1] += math.sin(self.orientation) / 5
         # print('velocity: ',self.vel)
 
-    def move(self):
+    def update(self):
         self.pos[0] += self.vel[0]
         self.pos[1] -= self.vel[1]
 
@@ -191,16 +201,20 @@ class Ship:
         return bullet
 
 
-class Bullet:
+class Bullet(pygame.sprite.Sprite):
     shootSpeed = 5
 
     def __init__(self, ship_pos, ship_orientation, ship_vel):
+        pygame.sprite.Sprite.__init__(self)
+        self.image = pygame.Surface([BULLETSIZE, BULLETSIZE])
+        self.image.fill(WHITE)
+        self.rect = self.image.get_rect()
         self.pos = [ship_pos[0] + SHIPSIZE / 2,
                     ship_pos[1] + SHIPSIZE / 2]
         self.vel = [ship_vel[0] + self.shootSpeed * math.cos(ship_orientation),
                     ship_vel[1] + self.shootSpeed * math.sin(ship_orientation)]
 
-    def move(self):
+    def update(self):
         self.pos[0] += self.vel[0]
         self.pos[1] -= self.vel[1]
 
@@ -209,10 +223,10 @@ class Bullet:
                 self.pos[1] > WINDOWHEIGHT + MARGIN + SHIPSIZE or
                 self.pos[0] < 0 - MARGIN or
                 self.pos[1] < 0 - MARGIN):
-            return True
+            self.kill()
 
 
-class Asteroid:
+class Asteroid(pygame.sprite.Sprite):
     Lsize = 30
     Msize = 15
     Ssize = 5
@@ -222,12 +236,18 @@ class Asteroid:
     Sspeed = 5
 
     def __init__(self, position=None, direction=None, speed=Lspeed, size=Lsize):
+        pygame.sprite.Sprite.__init__(self)
+
+        self.image = pygame.Surface([size, size])
+        self.image.fill(WHITE)  # change to circles
+
+        self.rect = self.image.get_rect()
+
         if position is not None:
             self.pos = position
             self.dir = direction
 
         else:
-            # self.size = self.Lsize
             edge = random.randint(0, 3)
             if edge == 2:
                 self.pos = [random.randint(0, WINDOWWIDTH - 1), 0]
@@ -243,7 +263,7 @@ class Asteroid:
         self.vel = [speed * math.cos(self.dir), speed * math.sin(self.dir)]
         self.size = size
 
-    def move(self):
+    def update(self):
         self.pos[0] += self.vel[0]
         self.pos[1] -= self.vel[1]
 
@@ -251,7 +271,7 @@ class Asteroid:
                 self.pos[1] > WINDOWHEIGHT + MARGIN or
                 self.pos[0] < 0 - MARGIN or
                 self.pos[1] < 0 - MARGIN):
-            return True
+            self.kill()
 
     def hit(self):
         angle = math.pi / 9
