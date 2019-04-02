@@ -107,7 +107,6 @@ def main():
                or snakeHead[0]<0 or snakeHead[1]<0
                or snakeHead in snake):
                 #game is lost
-                print(snakeDirection)
                 gameLostAnimation(mainBoard, snake, food, score)
                 mainBoard = initBoard()
                 #put these things in initialisation function
