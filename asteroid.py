@@ -10,7 +10,7 @@ FPS = 30  # frames per second, the general speed of the program
 WINDOWWIDTH = 640  # size of window's width in pixels
 WINDOWHEIGHT = 480  # size of windows' height in pixels
 SHIPSIZE = 20
-MARGIN = 50
+MARGIN = 50 # needs to be bigger than SHIPSIZE
 BULLETSIZE = 3
 
 #            R    G    B
@@ -37,11 +37,14 @@ DOWN = 'down'
 
 GODMODE = False
 
+ASTEROID_SPAWN_TIME = 5000
+
 
 def main():
-    global FPSCLOCK, DISPLAYSURF, SCORE, SHIP_IMG
+    global FPSCLOCK, DISPLAYSURF, score, SHIP_IMG, GAMESURFACE
     pygame.init()
     FPSCLOCK = pygame.time.Clock()
+    GAMESURFACE = pygame.Surface((WINDOWWIDTH + 2 * MARGIN, WINDOWHEIGHT + 2 * MARGIN))
     DISPLAYSURF = pygame.display.set_mode((WINDOWWIDTH, WINDOWHEIGHT))
 
     pygame.display.set_caption('Asteroids')
@@ -49,13 +52,13 @@ def main():
     SHIP_IMG.set_colorkey(BLACK)
 
     # initialize
-    SCORE = 0
+    score = 0
     ship = Ship()
     bullets = pygame.sprite.Group()
     asteroids = pygame.sprite.Group()
 
     asteroid_spawn = pygame.USEREVENT + 1
-    pygame.time.set_timer(asteroid_spawn, 5000)
+    pygame.time.set_timer(asteroid_spawn, ASTEROID_SPAWN_TIME)
 
     all_sprites = pygame.sprite.Group()
     all_sprites.add(ship)
@@ -64,7 +67,6 @@ def main():
     running = True
 
     while running:  # main game loop
-        DISPLAYSURF.fill(BGCOLOR)
 
         # all_sprites.draw(DISPLAYSURF)
         draw(ship, bullets, asteroids)
@@ -100,6 +102,7 @@ def main():
         all_sprites.update()
 
         # collision detection
+        # TODO: change bullet collision to sprite collision
         for bullet in bullets:
             for asteroid in asteroids:
                 if distance(bullet.pos, asteroid.pos) < asteroid.size:
@@ -115,7 +118,7 @@ def main():
         hits_asteroid = pygame.sprite.spritecollide(ship, asteroids, False, pygame.sprite.collide_circle)
 
         if hits_asteroid:
-            print("hit by" + str(hits_asteroid))
+            # print("hit by" + str(hits_asteroid))
             pygame.event.wait()
             # TODO display game over
             running = False
@@ -129,6 +132,7 @@ def distance(pos_a, pos_b):
 
 
 def draw(ship, bullets, asteroids):
+    #TODO implement/override sprite.draw function
 
     draw_ship(ship)
 
@@ -143,21 +147,19 @@ def draw(ship, bullets, asteroids):
 
 
 def draw_ship(ship):
-    # TODO fix border transitions
-    blitted_rect = DISPLAYSURF.blit(SHIP_IMG, ship.pos)
-    old_center = blitted_rect.center
+    # ship_topleft = [int(ship.pos[0] - SHIPSIZE / 2), int(ship.pos[1] - SHIPSIZE / 2)]
+
     rotated_surf = pygame.transform.rotate(SHIP_IMG, math.degrees(ship.orientation - math.pi / 2))
     rot_rect = rotated_surf.get_rect()
-    rot_rect.center = old_center
+    rot_rect.center = ship.pos
     DISPLAYSURF.fill(BGCOLOR)
     DISPLAYSURF.blit(rotated_surf, rot_rect)
-    # pygame.draw.rect(DISPLAYSURF, RED, ship.rect, 2)
-    # pygame.draw.rect(DISPLAYSURF, GREEN, ((ship.pos), (1, 1)))
 
+    # pygame.draw.rect(DISPLAYSURF, RED, rot_rect, 2)
 
 def draw_score():
     font_obj = pygame.font.Font('freesansbold.ttf', 32)
-    text_surface_obj = font_obj.render(str(SCORE), True, GREEN)
+    text_surface_obj = font_obj.render(str(score), True, GREEN)
     text_rect_obj = text_surface_obj.get_rect()
     text_rect_obj.top = 10
     text_rect_obj.right = (WINDOWWIDTH - 10)
@@ -183,25 +185,26 @@ class Ship(pygame.sprite.Sprite):
     def accelerate(self):
         self.vel[0] += math.cos(self.orientation) / 5
         self.vel[1] += math.sin(self.orientation) / 5
-        # print('velocity: ',self.vel)
 
     def update(self):
+        # update shoot timer
         if self.shot:
             self.shoot_delay -= 1
             if self.shoot_delay < 1:
                 self.shoot_delay = self.SHOOT_DELAY_INIT
                 self.shot = False
 
+        # update ship position
         self.pos[0] += self.vel[0]
         self.pos[1] -= self.vel[1]
 
-        self.rect.center = [self.pos[0] + SHIPSIZE / 2,
-                            self.pos[1] + SHIPSIZE / 2]
+        # this is needed for sprite collisions
+        self.rect.center = self.pos
 
-        # pos is the topleft most position of the ship image
-        if self.pos[0] > WINDOWWIDTH + MARGIN + SHIPSIZE:
+        #TODO update this
+        if self.pos[0] > WINDOWWIDTH + MARGIN:
             self.pos[0] = 0 - MARGIN
-        elif self.pos[1] > WINDOWHEIGHT + MARGIN + SHIPSIZE:
+        elif self.pos[1] > WINDOWHEIGHT + MARGIN:
             self.pos[1] = 0 - MARGIN
         elif self.pos[0] < 0 - MARGIN:
             self.pos[0] = WINDOWWIDTH + MARGIN
@@ -232,8 +235,7 @@ class Bullet(pygame.sprite.Sprite):
         self.radius = int(BULLETSIZE / 2)
         # pygame.draw.circle(self.image, RED, self.rect.center, self.radius)
         self.rect = self.image.get_rect()
-        self.pos = [ship_pos[0] + SHIPSIZE / 2,
-                    ship_pos[1] + SHIPSIZE / 2]
+        self.pos = [ship_pos[0] , ship_pos[1]]
         self.vel = [ship_vel[0] + self.shootSpeed * math.cos(ship_orientation),
                     ship_vel[1] + self.shootSpeed * math.sin(ship_orientation)]
 
@@ -241,9 +243,8 @@ class Bullet(pygame.sprite.Sprite):
         self.pos[0] += self.vel[0]
         self.pos[1] -= self.vel[1]
 
-        # pos is the topleft most position of the ship image
-        if (self.pos[0] > WINDOWWIDTH + MARGIN + SHIPSIZE or
-                self.pos[1] > WINDOWHEIGHT + MARGIN + SHIPSIZE or
+        if (self.pos[0] > WINDOWWIDTH + MARGIN or
+                self.pos[1] > WINDOWHEIGHT + MARGIN or
                 self.pos[0] < 0 - MARGIN or
                 self.pos[1] < 0 - MARGIN):
             self.kill()
@@ -261,10 +262,9 @@ class Asteroid(pygame.sprite.Sprite):
     def __init__(self, position=None, direction=None, speed=Lspeed, size=Lsize):
         pygame.sprite.Sprite.__init__(self)
 
-        self.image = pygame.Surface([size, size])
-        self.image.fill(WHITE)  # change to circles
-
+        self.image = pygame.Surface([2 * size, 2 * size])
         self.rect = self.image.get_rect()
+
         self.radius = size
 
         if position is not None:
@@ -302,18 +302,18 @@ class Asteroid(pygame.sprite.Sprite):
 
     def hit(self):
         angle = math.pi / 9
-        global SCORE
+        global score
 
         if self.size == self.Lsize:
             speed = self.Mspeed
             size = self.Msize
-            SCORE += 20
+            score += 20
         elif self.size == self.Msize:
             speed = self.Sspeed
             size = self.Ssize
-            SCORE += 50
-        elif self.size == self.Ssize:
-            SCORE += 100
+            score += 50
+        else:
+            score += 100
             return None
 
         pieces = [Asteroid(self.pos.copy(), self.dir + angle, speed, size),
