@@ -66,7 +66,7 @@ def main():
     DISPLAYSURF.fill(BGCOLOR)
     running = True
 
-    while running:  # main game loop
+    while running:
 
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
@@ -101,6 +101,9 @@ def main():
 
         # shoot_asteroid = pygame.sprite.groupcollide(bullets, asteroids, True, False, pygame.sprite.collide_circle)
 
+        #if shoot_asteroid:
+        #    pass
+
         for bullet in bullets:
             for asteroid in asteroids:
                 if distance(bullet.pos, asteroid.pos) < asteroid.size:
@@ -113,12 +116,12 @@ def main():
                             all_sprites.add(new_asteroid)
                     break
         
-        hits_asteroid = pygame.sprite.spritecollide(ship, asteroids, False, pygame.sprite.collide_circle)
+        ship_hits_asteroid = pygame.sprite.spritecollide(ship, asteroids, False, pygame.sprite.collide_circle)
 
         # all_sprites.draw(DISPLAYSURF)
         draw(ship, bullets, asteroids)
 
-        if hits_asteroid:
+        if ship_hits_asteroid:
             draw_game_over()
             running = False
 
@@ -127,11 +130,9 @@ def main():
         FPSCLOCK.tick(FPS)
         # print(FPSCLOCK.get_fps())
 
-    pygame.event.set_blocked(asteroid_spawn)
-    # TODO fix wait
-    e = pygame.event.wait()
-    # still gets triggered by the asteroid spawn event
-    print(e)
+    pygame.event.set_blocked(asteroid_spawn) # does not work
+    pygame.time.set_timer(asteroid_spawn, 0)
+    pygame.event.wait()
 
 
 def distance(pos_a, pos_b):
@@ -139,30 +140,16 @@ def distance(pos_a, pos_b):
 
 
 def draw(ship, bullets, asteroids):
-    #TODO implement/override sprite.draw function
-
-    draw_ship(ship)
+    ship.draw()
 
     for bullet in bullets:
-        pygame.draw.rect(DISPLAYSURF, WHITE, (bullet.pos, (BULLETSIZE, BULLETSIZE)))
+        bullet.draw()
 
     for asteroid in asteroids:
-        pygame.draw.circle(DISPLAYSURF, WHITE, (int(asteroid.pos[0]), int(asteroid.pos[1])), asteroid.size, 3)
-        # pygame.draw.rect(DISPLAYSURF, RED, asteroid.rect, 2)
+        asteroid.draw()
 
     draw_score()
 
-
-def draw_ship(ship):
-    # ship_topleft = [int(ship.pos[0] - SHIPSIZE / 2), int(ship.pos[1] - SHIPSIZE / 2)]
-
-    rotated_surf = pygame.transform.rotate(SHIP_IMG, math.degrees(ship.orientation - math.pi / 2))
-    rot_rect = rotated_surf.get_rect()
-    rot_rect.center = ship.pos
-    DISPLAYSURF.fill(BGCOLOR)
-    DISPLAYSURF.blit(rotated_surf, rot_rect)
-
-    # pygame.draw.rect(DISPLAYSURF, RED, rot_rect, 2)
 
 def draw_score():
     font_obj = pygame.font.Font('freesansbold.ttf', 32)
@@ -238,6 +225,13 @@ class Ship(pygame.sprite.Sprite):
             bullet = Bullet(self.pos, self.orientation, self.vel)
             return bullet
 
+    def draw(self):
+        rotated_surf = pygame.transform.rotate(SHIP_IMG, math.degrees(self.orientation - math.pi / 2))
+        rot_rect = rotated_surf.get_rect()
+        rot_rect.center = self.pos
+        DISPLAYSURF.fill(BGCOLOR)
+        DISPLAYSURF.blit(rotated_surf, rot_rect)
+
 
 class Bullet(pygame.sprite.Sprite):
     shootSpeed = 5
@@ -262,6 +256,9 @@ class Bullet(pygame.sprite.Sprite):
 
         if is_of_the_map(self.pos):
             self.kill()
+
+    def draw(self):
+        pygame.draw.rect(DISPLAYSURF, WHITE, (self.pos, (BULLETSIZE, BULLETSIZE)))
 
 
 class Asteroid(pygame.sprite.Sprite):
@@ -332,6 +329,8 @@ class Asteroid(pygame.sprite.Sprite):
 
         return pieces
 
+    def draw(self):
+        pygame.draw.circle(DISPLAYSURF, WHITE, (int(self.pos[0]), int(self.pos[1])), self.size, 3)
 
 if __name__ == '__main__':
     main()
