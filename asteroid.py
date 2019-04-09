@@ -68,11 +68,6 @@ def main():
 
     while running:  # main game loop
 
-        # all_sprites.draw(DISPLAYSURF)
-        draw(ship, bullets, asteroids)
-
-        pygame.display.update()
-
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
                 pygame.quit()
@@ -103,28 +98,40 @@ def main():
 
         # collision detection
         # TODO: change bullet collision to sprite collision
+
+        # shoot_asteroid = pygame.sprite.groupcollide(bullets, asteroids, True, False, pygame.sprite.collide_circle)
+
         for bullet in bullets:
             for asteroid in asteroids:
                 if distance(bullet.pos, asteroid.pos) < asteroid.size:
                     bullet.kill()
-                    pieces = asteroid.hit()
+                    pieces = asteroid.explode_in_pieces()
                     asteroid.kill()
                     if pieces is not None:
                         for new_asteroid in pieces:
                             asteroids.add(new_asteroid)
                             all_sprites.add(new_asteroid)
                     break
-
+        
         hits_asteroid = pygame.sprite.spritecollide(ship, asteroids, False, pygame.sprite.collide_circle)
 
+        # all_sprites.draw(DISPLAYSURF)
+        draw(ship, bullets, asteroids)
+
         if hits_asteroid:
-            # print("hit by" + str(hits_asteroid))
-            pygame.event.wait()
-            # TODO display game over
+            draw_game_over()
             running = False
+
+        pygame.display.update()
 
         FPSCLOCK.tick(FPS)
         # print(FPSCLOCK.get_fps())
+
+    pygame.event.set_blocked(asteroid_spawn)
+    # TODO fix wait
+    e = pygame.event.wait()
+    # still gets triggered by the asteroid spawn event
+    print(e)
 
 
 def distance(pos_a, pos_b):
@@ -165,6 +172,17 @@ def draw_score():
     text_rect_obj.right = (WINDOWWIDTH - 10)
     DISPLAYSURF.blit(text_surface_obj, text_rect_obj)
 
+def draw_game_over():
+    font_obj = pygame.font.Font('freesansbold.ttf', 32)
+    text_surface_obj = font_obj.render("Game Over", True, WHITE)
+    text_rect_obj = text_surface_obj.get_rect()
+    text_rect_obj.center = [WINDOWWIDTH / 2, WINDOWHEIGHT / 2]
+    DISPLAYSURF.blit(text_surface_obj, text_rect_obj)
+
+def is_of_the_map(position):
+    return (position[0] > WINDOWWIDTH + MARGIN or position[1] >  WINDOWHEIGHT + MARGIN or
+            position[0] < 0 - MARGIN or position[1] < 0 - MARGIN)
+
 
 class Ship(pygame.sprite.Sprite):
     SHOOT_DELAY_INIT = 5
@@ -180,7 +198,7 @@ class Ship(pygame.sprite.Sprite):
         self.orientation = math.pi / 2
         self.vel = [0, 0]
         self.shoot_delay = self.SHOOT_DELAY_INIT
-        self.shot = False
+        self.has_shot = False
 
     def accelerate(self):
         self.vel[0] += math.cos(self.orientation) / 5
@@ -188,20 +206,17 @@ class Ship(pygame.sprite.Sprite):
 
     def update(self):
         # update shoot timer
-        if self.shot:
+        if self.has_shot:
             self.shoot_delay -= 1
             if self.shoot_delay < 1:
                 self.shoot_delay = self.SHOOT_DELAY_INIT
-                self.shot = False
+                self.has_shot = False
 
         # update ship position
         self.pos[0] += self.vel[0]
         self.pos[1] -= self.vel[1]
-
-        # this is needed for sprite collisions
         self.rect.center = self.pos
 
-        #TODO update this
         if self.pos[0] > WINDOWWIDTH + MARGIN:
             self.pos[0] = 0 - MARGIN
         elif self.pos[1] > WINDOWHEIGHT + MARGIN:
@@ -218,8 +233,8 @@ class Ship(pygame.sprite.Sprite):
         self.orientation += math.pi / 18
 
     def shoot(self):
-        if not self.shot:
-            self.shot = True
+        if not self.has_shot:
+            self.has_shot = True
             bullet = Bullet(self.pos, self.orientation, self.vel)
             return bullet
 
@@ -243,10 +258,9 @@ class Bullet(pygame.sprite.Sprite):
         self.pos[0] += self.vel[0]
         self.pos[1] -= self.vel[1]
 
-        if (self.pos[0] > WINDOWWIDTH + MARGIN or
-                self.pos[1] > WINDOWHEIGHT + MARGIN or
-                self.pos[0] < 0 - MARGIN or
-                self.pos[1] < 0 - MARGIN):
+        self.rect.center = self.pos
+
+        if is_of_the_map(self.pos):
             self.kill()
 
 
@@ -294,13 +308,10 @@ class Asteroid(pygame.sprite.Sprite):
 
         self.rect.center = self.pos
 
-        if (self.pos[0] > WINDOWWIDTH + MARGIN or
-                self.pos[1] > WINDOWHEIGHT + MARGIN or
-                self.pos[0] < 0 - MARGIN or
-                self.pos[1] < 0 - MARGIN):
+        if is_of_the_map(self.pos):
             self.kill()
 
-    def hit(self):
+    def explode_in_pieces(self):
         angle = math.pi / 9
         global score
 
